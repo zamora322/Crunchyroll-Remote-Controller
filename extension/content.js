@@ -321,14 +321,27 @@
   }
 
   let isRemoteConnected = false;
+  let disconnectToastTimer = null;
 
   // Listen for commands forwarded by background.js service worker
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message && message.type === 'cr_remote_status') {
-      if (message.connected && !isRemoteConnected) {
-        showToast('Control Remoto Conectado 🟢');
-      } else if (!message.connected && isRemoteConnected) {
-        showToast('Control Remoto Desconectado 🔴', false);
+      if (message.connected) {
+        if (disconnectToastTimer) {
+          clearTimeout(disconnectToastTimer);
+          disconnectToastTimer = null;
+        }
+        if (!isRemoteConnected) {
+          showToast('Control Remoto Conectado 🟢');
+        }
+      } else {
+        // Only show disconnected toast if it stays disconnected for more than 4s
+        if (!disconnectToastTimer && isRemoteConnected) {
+          disconnectToastTimer = setTimeout(() => {
+            showToast('Control Remoto Desconectado 🔴', false);
+            disconnectToastTimer = null;
+          }, 4000);
+        }
       }
       isRemoteConnected = !!message.connected;
       return;

@@ -67,13 +67,19 @@ function sendCommand(commandName, payload = {}) {
   });
 
   if (ws && ws.readyState === WebSocket.OPEN) {
-    ws.send(message);
-    console.log('[Remote] Sent command:', message);
+    try {
+      ws.send(message);
+      console.log('[Remote] Sent command:', message);
+    } catch (e) {
+      console.warn('[Remote] Send failed, queuing and reconnecting:', e);
+      pendingCommands.push(message);
+      connectWebSocket(true);
+    }
   } else {
     console.warn('[Remote] Socket not open. Queuing command and reconnecting immediately...');
     pendingCommands.push(message);
     updateStatus('reconnecting', 'Reconectando y enviando...');
-    connectWebSocket();
+    connectWebSocket(true);
   }
 }
 
@@ -85,16 +91,8 @@ function startHeartbeat() {
       try {
         ws.send(JSON.stringify({ type: 'ping', timestamp: Date.now() }));
       } catch (e) {
-        console.warn('[Remote] Heartbeat ping failed:', e);
-      }
-
-      // If no pong response for > 20s, assume stale/dead socket and reconnect
-      if (Date.now() - lastPongTime > 20000) {
-        console.warn('[Remote] Heartbeat timeout. Resetting connection...');
-        try {
-          ws.close();
-        } catch (_) {}
-        connectWebSocket();
+        console.warn('[Remote] Heartbeat ping failed, resetting socket:', e);
+        connectWebSocket(true);
       }
     }
   }, 10000);
@@ -107,16 +105,16 @@ function stopHeartbeat() {
   }
 }
 
-function connectWebSocket() {
-  // If already connecting or open, don't duplicate
-  if (ws && (ws.readyState === WebSocket.CONNECTING || ws.readyState === WebSocket.OPEN)) {
+function connectWebSocket(force = false) {
+  // If already connecting or open and not forced, don't duplicate
+  if (!force && ws && (ws.readyState === WebSocket.CONNECTING || ws.readyState === WebSocket.OPEN)) {
     return;
   }
 
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   const wsUrl = `${protocol}//${window.location.host}/ws`;
 
-  console.log(`[Remote] Connecting to ${wsUrl}...`);
+  console.log(`[Remote] Connecting to ${wsUrl} (forced: ${force})...`);
   updateStatus('reconnecting', 'Conectando...');
 
   try {
@@ -198,7 +196,13 @@ function handleWakeup() {
   if (document.visibilityState === 'visible') {
     console.log('[Remote] Wakeup event detected: checking WebSocket & WakeLock...');
     if (!ws || ws.readyState !== WebSocket.OPEN) {
-      connectWebSocket();
+      connectWebSocket(true);
+    } else {
+      try {
+        ws.send(JSON.stringify({ type: 'ping', timestamp: Date.now() }));
+      } catch (e) {
+        connectWebSocket(true);
+      }
     }
     // Re-request wake lock if previously enabled (system automatically releases on minimize)
     if (isWakeLockActive) {
@@ -212,7 +216,7 @@ window.addEventListener('focus', handleWakeup);
 window.addEventListener('pageshow', handleWakeup);
 window.addEventListener('online', () => {
   console.log('[Remote] Device back online.');
-  connectWebSocket();
+  connectWebSocket(true);
 });
 
 // Screen Wake Lock Implementation

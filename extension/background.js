@@ -1,11 +1,12 @@
 // Background Service Worker for Crunchyroll Remote Controller
 // Running the WebSocket here bypasses Crunchyroll's page Content Security Policy (CSP).
 
-const WS_URL = 'ws://localhost:8000/ws';
+const WS_URL = 'ws://127.0.0.1:8000/ws';
 let ws = null;
 let reconnectTimer = null;
 let heartbeatInterval = null;
-const RECONNECT_INTERVAL = 2500;
+let disconnectNotifyTimer = null;
+const RECONNECT_INTERVAL = 2000;
 const HEARTBEAT_INTERVAL = 15000;
 
 console.log('[CR-Background] Service worker initialized.');
@@ -46,6 +47,10 @@ function connectWebSocket() {
         clearTimeout(reconnectTimer);
         reconnectTimer = null;
       }
+      if (disconnectNotifyTimer) {
+        clearTimeout(disconnectNotifyTimer);
+        disconnectNotifyTimer = null;
+      }
       startHeartbeat();
       // Broadcast connection status to all Crunchyroll tabs
       notifyTabs({ type: 'cr_remote_status', connected: true });
@@ -82,7 +87,12 @@ function connectWebSocket() {
     ws.onclose = () => {
       console.warn('[CR-Background] WebSocket disconnected. Scheduling reconnect...');
       stopHeartbeat();
-      notifyTabs({ type: 'cr_remote_status', connected: false });
+      if (!disconnectNotifyTimer) {
+        disconnectNotifyTimer = setTimeout(() => {
+          notifyTabs({ type: 'cr_remote_status', connected: false });
+          disconnectNotifyTimer = null;
+        }, 4000);
+      }
       scheduleReconnect();
     };
 
