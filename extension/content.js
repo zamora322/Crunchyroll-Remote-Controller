@@ -320,24 +320,76 @@
     }
   }
 
+  let isRemoteConnected = false;
+
   // Listen for commands forwarded by background.js service worker
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message && message.type === 'cr_remote_status') {
-      if (message.connected) {
+      if (message.connected && !isRemoteConnected) {
         showToast('Control Remoto Conectado 🟢');
+      } else if (!message.connected && isRemoteConnected) {
+        showToast('Control Remoto Desconectado 🔴', false);
       }
+      isRemoteConnected = !!message.connected;
       return;
     }
     handleCommand(message);
   });
 
-  // Notify background script that content script is ready
-  chrome.runtime.sendMessage({ type: 'check_connection' }, (response) => {
-    if (chrome.runtime.lastError) {
-      // Ignore error during initial worker spin-up
-    } else if (response && response.connected) {
-      showToast('Control Remoto Conectado 🟢');
+  // Only run the keepalive watchdog from the top-level window
+  if (window.top === window.self) {
+    let keepAlivePort = null;
+
+    function initKeepAlivePort() {
+      try {
+        keepAlivePort = chrome.runtime.connect({ name: 'cr_keepalive' });
+        keepAlivePort.onDisconnect.addListener(() => {
+          keepAlivePort = null;
+          setTimeout(initKeepAlivePort, 2000);
+        });
+      } catch (e) {
+        keepAlivePort = null;
+        setTimeout(initKeepAlivePort, 2000);
+      }
     }
-  });
+
+    initKeepAlivePort();
+
+    // Send keepalive pings every 10 seconds: keeps MV3 service worker alive
+    // and automatically wakes it up if Chrome ever stopped it.
+    setInterval(() => {
+      if (keepAlivePort) {
+        try {
+          keepAlivePort.postMessage({ type: 'ping' });
+        } catch (e) {
+          initKeepAlivePort();
+        }
+      } else {
+        initKeepAlivePort();
+      }
+
+      // Explicit sendMessage as additional trigger to wake service worker if suspended
+      chrome.runtime.sendMessage({ type: 'keep_alive' }, (response) => {
+        if (chrome.runtime.lastError) {
+          // Worker might be restarting
+        } else if (response && response.connected !== undefined) {
+          if (response.connected && !isRemoteConnected) {
+            showToast('Control Remoto Conectado 🟢');
+          }
+          isRemoteConnected = response.connected;
+        }
+      });
+    }, 10000);
+
+    // Initial check on page load
+    chrome.runtime.sendMessage({ type: 'check_connection' }, (response) => {
+      if (chrome.runtime.lastError) {
+        // Ignore error during initial worker spin-up
+      } else if (response && response.connected) {
+        isRemoteConnected = true;
+        showToast('Control Remoto Conectado 🟢');
+      }
+    });
+  }
 
 })();

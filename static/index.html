@@ -66,20 +66,30 @@
 </head>
 <body class="h-full flex flex-col justify-between p-6 select-none bg-gradient-to-b from-slate-950 via-[#141519] to-slate-950">
 
-  <!-- Header & Connection Status -->
-  <header class="flex items-center justify-between py-2 border-b border-slate-800/80">
-    <div class="flex items-center gap-2">
-      <!-- Crunchyroll orange logo accent -->
-      <div class="w-7 h-7 rounded-lg bg-cr-orange flex items-center justify-center font-black text-slate-950 text-base shadow-lg shadow-orange-500/20">
-        CR
+  <!-- Header & Status Bar -->
+  <header class="flex flex-col gap-2 pb-2 border-b border-slate-800/80">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <!-- Crunchyroll orange logo accent -->
+        <div class="w-7 h-7 rounded-lg bg-cr-orange flex items-center justify-center font-black text-slate-950 text-base shadow-lg shadow-orange-500/20">
+          CR
+        </div>
+        <h1 class="text-lg font-bold tracking-tight text-white">Remote Control</h1>
       </div>
-      <h1 class="text-lg font-bold tracking-tight text-white">Remote Control</h1>
+
+      <!-- Status Badge -->
+      <div id="status-container" class="flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900 border border-slate-800 text-xs font-semibold text-slate-400 transition-all duration-300">
+        <span id="status-indicator" class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+        <span id="status-text">Conectando...</span>
+      </div>
     </div>
 
-    <!-- Status Badge -->
-    <div id="status-container" class="flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900 border border-slate-800 text-xs font-semibold text-slate-400 transition-all duration-300">
-      <span id="status-indicator" class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
-      <span id="status-text">Conectando...</span>
+    <!-- Quick utility bar: Wake Lock indicator / toggle -->
+    <div class="flex items-center justify-end">
+      <button id="btn-wakelock" type="button" class="btn-press flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-900 border border-slate-800 text-xs font-semibold text-slate-400 transition-all">
+        <span id="wakelock-dot" class="w-1.5 h-1.5 rounded-full bg-slate-500"></span>
+        <span id="wakelock-label">Pantalla</span>
+      </button>
     </div>
   </header>
 

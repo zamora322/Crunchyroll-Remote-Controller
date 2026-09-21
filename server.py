@@ -60,6 +60,8 @@ class ConnectionManager:
             self.disconnect(stale)
 
 
+import json
+
 manager = ConnectionManager()
 
 
@@ -69,6 +71,25 @@ async def websocket_endpoint(websocket: WebSocket):
     try:
         while True:
             data = await websocket.receive_text()
+            # Heartbeat ping handling: reply with pong and do not broadcast
+            is_ping = False
+            if data == "ping":
+                is_ping = True
+            else:
+                try:
+                    payload = json.loads(data)
+                    if isinstance(payload, dict) and payload.get("type") == "ping":
+                        is_ping = True
+                except Exception:
+                    pass
+
+            if is_ping:
+                try:
+                    await websocket.send_text(json.dumps({"type": "pong"}))
+                except Exception:
+                    pass
+                continue
+
             logger.info(f"Relayed command: {data}")
             await manager.broadcast(data, sender=websocket)
     except WebSocketDisconnect:
