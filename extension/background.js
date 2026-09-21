@@ -97,7 +97,7 @@ function connectWebSocket() {
     };
 
     ws.onerror = (err) => {
-      console.error('[CR-Background] WebSocket error:', err);
+      console.warn('[CR-Background] WebSocket error (server might be starting/stopped):', err);
       stopHeartbeat();
       if (ws) {
         try {
@@ -106,7 +106,7 @@ function connectWebSocket() {
       }
     };
   } catch (err) {
-    console.error('[CR-Background] Failed to connect WebSocket:', err);
+    console.warn('[CR-Background] Connection attempt failed:', err);
     scheduleReconnect();
   }
 }
